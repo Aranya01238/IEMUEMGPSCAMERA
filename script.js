@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const capturePhotoBtn = document.getElementById('capture-photo');
     const stopCameraBtn = document.getElementById('stop-camera');
     const newPhotoBtn = document.getElementById('new-photo');
+    const switchCameraBtn = document.getElementById('switch-camera');
     const downloadContainer = document.getElementById('download-container');
     const downloadLink = document.getElementById('download-link');
     
@@ -24,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let timestampInterval;
     let addressCache = {};
     const LOCATIONIQ_API_KEY = 'pk.aba82bcb0fe292e664fff29d7ee9ce5f';
+    let usingFrontCamera = false;
 
     // Enhanced timestamp with timezone
     function updateTimestamp() {
@@ -40,38 +42,30 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatAddress(addr) {
         if (!addr) return "Location details not available";
         
-        // Common validation checks
         const isValidAddress = addr.road || addr.building || addr.amenity || 
                              addr.neighbourhood || addr.suburb || 
                              addr.city || addr.town || addr.village;
         
         if (!isValidAddress) return "Precise location not available";
 
-        // Construct hierarchical address
         let addressParts = [];
-        
-        // Precise location details
         if (addr.building) addressParts.push(addr.building);
         else if (addr.amenity) addressParts.push(addr.amenity);
         
-        // Street-level details
         if (addr.road) {
             if (addr.house_number) addressParts.push(`${addr.house_number} ${addr.road}`);
             else addressParts.push(addr.road);
         }
         
-        // Area details
         if (addr.neighbourhood && !addr.neighbourhood.match(/^Ward \d+$/i)) {
             addressParts.push(addr.neighbourhood);
         }
         if (addr.suburb) addressParts.push(addr.suburb);
         
-        // City/town
         if (addr.city || addr.town || addr.village) {
             addressParts.push(addr.city || addr.town || addr.village);
         }
         
-        // Administrative details
         if (addr.state_district && addr.state_district !== addr.city) {
             addressParts.push(addr.state_district);
         }
@@ -86,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getPreciseAddress(latitude, longitude) {
         const cacheKey = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
         
-        // Check cache first
         if (addressCache[cacheKey]) {
             return addressCache[cacheKey];
         }
@@ -103,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const address = formatAddress(data.address);
             
-            // Cache valid addresses
             if (address && !address.includes("not available")) {
                 addressCache[cacheKey] = address;
                 return address;
@@ -114,6 +106,53 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Geocoding error:", error);
             return "Could not retrieve address";
         }
+    }
+
+    // Start camera with specified facing mode
+    async function startCamera(facingMode = 'environment') {
+        try {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: facingMode,
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            });
+            
+            video.srcObject = stream;
+            usingFrontCamera = facingMode === 'user';
+            
+            video.classList.remove('hidden');
+            cameraOff.classList.add('hidden');
+            cameraOverlay.classList.remove('hidden');
+            
+            startCameraBtn.classList.add('hidden');
+            capturePhotoBtn.classList.remove('hidden');
+            stopCameraBtn.classList.remove('hidden');
+            switchCameraBtn.classList.remove('hidden');
+            
+            capturedImage.classList.add('hidden');
+            downloadContainer.classList.add('hidden');
+            
+            await updateLocation();
+            locationInterval = setInterval(updateLocation, 30000);
+            timestampInterval = setInterval(updateTimestamp, 1000);
+            
+        } catch (err) {
+            console.error('Camera error:', err);
+            permissionError.classList.remove('hidden');
+        }
+    }
+
+    // Switch between front and back camera
+    function switchCamera() {
+        const newFacingMode = usingFrontCamera ? 'environment' : 'user';
+        startCamera(newFacingMode);
     }
 
     // High-accuracy location updates
@@ -128,20 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 async (position) => {
                     const { latitude, longitude, accuracy } = position.coords;
                     
-                    // Only proceed if accuracy is good enough (under 50 meters)
-                    // Alternative approach that accepts lower accuracy but indicates it:
-                if (accuracy > 100) {
-                    gpsElement.textContent = `Approximate location (accuracy: ${Math.round(accuracy)}m)`;
-                    // Continue anyway but show the accuracy to users
-                } else {
-                    gpsElement.textContent = `Precise location (accuracy: ${Math.round(accuracy)}m)`;
-                }
-                    setTimeout(() => {
-                        if (currentAddress.includes("Refining")) {
-                            gpsElement.textContent = "Using best available location";
-                            proceedWithLookup(); // You'll need to implement this function
-                        }
-                    }, 15000); // 15 second timeout
+                    if (accuracy > 100) {
+                        gpsElement.textContent = `Approximate location (${Math.round(accuracy)}m)`;
+                    } else {
+                        gpsElement.textContent = `Precise location (${Math.round(accuracy)}m)`;
+                    }
+                    
                     try {
                         currentAddress = await getPreciseAddress(latitude, longitude);
                         gpsElement.textContent = `Location: ${currentAddress}`;
@@ -154,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 (error) => {
                     console.error("Geolocation error:", error);
-                    gpsElement.textContent = "Enable location for precise address";
+                    gpsElement.textContent = "Enable location for address";
                     resolve();
                 },
                 { 
@@ -164,40 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             );
         });
-    }
-
-    // Start camera with enhanced location
-    async function startCamera() {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' },
-                audio: false
-            });
-            
-            video.srcObject = stream;
-            
-            video.classList.remove('hidden');
-            cameraOff.classList.add('hidden');
-            cameraOverlay.classList.remove('hidden');
-            
-            startCameraBtn.classList.add('hidden');
-            capturePhotoBtn.classList.remove('hidden');
-            stopCameraBtn.classList.remove('hidden');
-            
-            capturedImage.classList.add('hidden');
-            downloadContainer.classList.add('hidden');
-            
-            // Initial location update
-            await updateLocation();
-            
-            // Regular updates
-            locationInterval = setInterval(updateLocation, 30000);
-            timestampInterval = setInterval(updateTimestamp, 1000);
-            
-        } catch (err) {
-            console.error('Camera error:', err);
-            permissionError.classList.remove('hidden');
-        }
     }
     
     // Stop camera
@@ -218,9 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         startCameraBtn.classList.remove('hidden');
         capturePhotoBtn.classList.add('hidden');
         stopCameraBtn.classList.add('hidden');
+        switchCameraBtn.classList.add('hidden');
     }
     
-    // Capture photo with precise address
+    // Capture photo
     function capturePhoto() {
         const context = canvas.getContext('2d');
         
@@ -242,14 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
             uemLogo.onload = () => {
                 context.drawImage(uemLogo, canvas.width * 0.8, logoY, logoWidth, logoHeight);
                 
-                // Enhanced info bar
                 context.fillStyle = "rgba(0, 0, 0, 0.5)";
                 context.fillRect(0, canvas.height - 80, canvas.width, 80);
                 
                 context.fillStyle = "white";
                 context.font = "bold 14px Arial";
                 
-                // Timestamp with timezone
                 const date = new Date();
                 const timestamp = date.toLocaleString('en-US', {
                     weekday: 'short',
@@ -263,14 +259,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 context.fillText(`Captured: ${timestamp}`, 10, canvas.height - 60);
                 
-                // Address with multi-line support
                 context.font = "13px Arial";
                 const addressLines = splitAddressLines(currentAddress, canvas.width - 20, context);
                 addressLines.forEach((line, index) => {
                     context.fillText(line, 10, canvas.height - 40 + (index * 15));
                 });
                 
-                // Finalize image
                 const imageDataUrl = canvas.toDataURL('image/png');
                 capturedImage.src = imageDataUrl;
                 capturedImage.classList.remove('hidden');
@@ -282,13 +276,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 newPhotoBtn.classList.remove('hidden');
                 capturePhotoBtn.classList.add('hidden');
+                switchCameraBtn.classList.add('hidden');
             };
             uemLogo.src = 'uem-logo.png';
         };
         iemLogo.src = 'iem-logo.png';
     }
     
-    // Helper to split long addresses into multiple lines
     function splitAddressLines(address, maxWidth, context) {
         const lines = [];
         let currentLine = '';
@@ -314,12 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
         video.classList.remove('hidden');
         newPhotoBtn.classList.add('hidden');
         capturePhotoBtn.classList.remove('hidden');
+        switchCameraBtn.classList.remove('hidden');
         downloadContainer.classList.add('hidden');
     }
     
     // Event listeners
-    startCameraBtn.addEventListener('click', startCamera);
+    startCameraBtn.addEventListener('click', () => startCamera('environment'));
     stopCameraBtn.addEventListener('click', stopCamera);
     capturePhotoBtn.addEventListener('click', capturePhoto);
     newPhotoBtn.addEventListener('click', resetForNewPhoto);
+    switchCameraBtn.addEventListener('click', switchCamera);
 });
