@@ -233,12 +233,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const iemLogo = new Image();
         iemLogo.crossOrigin = "anonymous";
         iemLogo.onload = () => {
-            context.drawImage(iemLogo, canvas.width * 0.05, logoY, logoWidth, logoHeight);
+            context.drawImage(iemLogo, canvas.width * 0.05, logoY-40, logoWidth-7, logoHeight-10);
             
             const uemLogo = new Image();
             uemLogo.crossOrigin = "anonymous";
             uemLogo.onload = () => {
-                context.drawImage(uemLogo, canvas.width * 0.8, logoY, logoWidth, logoHeight);
+                context.drawImage(uemLogo, canvas.width * 0.8, logoY-30, logoWidth-9, logoHeight-18);
                 
                 context.fillStyle = "rgba(0, 0, 0, 0.5)";
                 context.fillRect(0, canvas.height - 80, canvas.width, 80);
