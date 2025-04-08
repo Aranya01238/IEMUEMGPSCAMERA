@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Camera Interface</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>GPS Camera Interface</h1>
+        
+        <div id="permission-error" class="error-message hidden">
+            Camera access denied. Please allow camera access and refresh the page.
+        </div>
+
+        <div class="camera-container">
+            <!-- Video element for camera feed -->
+            <video id="video" autoplay playsinline class="hidden"></video>
+            
+            <!-- Image element for displaying captured photo -->
+            <img id="captured-image" class="hidden" alt="Captured photo">
+            
+            <!-- Camera off placeholder -->
+            <div id="camera-off" class="camera-off">
+                <div class="camera-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                        <circle cx="12" cy="13" r="3"></circle>
+                    </svg>
+                </div>
+                <p>Camera is off</p>
+            </div>
+            
+            <!-- GPS-like overlay elements -->
+            <div id="camera-overlay" class="camera-overlay hidden">
+                <!-- Crosshair -->
+                <div class="crosshair">
+                    <div class="crosshair-circle">
+                        <div class="crosshair-vertical"></div>
+                        <div class="crosshair-horizontal"></div>
+                    </div>
+                </div>
+                
+                <!-- Info bar at bottom -->
+                <div class="info-bar">
+                    <div class="info-content">
+                        <span id="gps-coords">GPS: 22.5726° N, 88.3639° E</span>
+                        <span id="timestamp"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hidden canvas for processing -->
+        <canvas id="canvas" class="hidden"></canvas>
+        
+        <div class="controls">
+            <button id="start-camera" class="btn btn-primary">Start Camera</button>
+            <button id="capture-photo" class="btn btn-danger hidden">Capture</button>
+            <button id="stop-camera" class="btn btn-secondary hidden">Stop Camera</button>
+            <button id="new-photo" class="btn btn-secondary hidden">New Photo</button>
+        </div>
+        
+        <div class="download-container hidden" id="download-container">
+            <a id="download-link" class="btn btn-success" download="gps-camera-photo.png">Download Photo</a>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
